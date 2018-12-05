@@ -11,16 +11,23 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 /*******************************************************************************
 			INCLUDES
 *******************************************************************************/
-
-#include <linux/module.h>
+//#include<linux/kernel.h>
+//#include<linux/init.h>
+#include<linux/module.h>
+#include <linux/fs.h>	//included to resolve the error of major-minor functions and MKDEV,MAJOR,MINOR as well
+//#include <linux/module.h>
 /*******************************************************************************
 			 LOCAL MACROS		
 *******************************************************************************/
 
 #define U_MODULE_LICENSE	"GPL"
 #define U_MODULE_AUTHOR		"MILIN@SPANIDEA"
-#define U_MODULE_DESCRIPTION	"MODULE PARAMETERS PASSING"
-#define U_MODULE_VERSION	"0:1.1"
+#define U_MODULE_DESCRIPTION	"MAJOR MINOR NUMBER"
+#define U_MODULE_VERSION	"0:1.2"
+
+#define DEVICE_NAME "stone_victor"
+//#define MAJOR_MINOR_STATIC
+#define MAJOR_MINOR_DYNAMIC
 
 /*******************************************************************************
 			 LOCAL TYPEDEFS		
@@ -37,6 +44,15 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 /*******************************************************************************
 			LOCAL FUNCTIONS		
 *******************************************************************************/
+/*---------------------------static major minor number allocation-------------*/
+#ifdef MAJOR_MINOR_DYNAMIC
+	dev_t dev = 0;
+#endif
+#ifdef MAJOR_MINOR_STATIC
+	dev_t dev = MKDEV(738, 0);
+#endif
+
+/*----------------------------------------------------------------------------*/
 /*---------------------------Module parameters--------------------------------*/
 int valueETX, arr_valueETX[4];//1, 2
 char *nameETX;//3
@@ -88,6 +104,22 @@ return param     : signed integer
 static int sample_module_init(void)
 {
 	int i=0;
+#ifdef MAJOR_MINOR_DYNAMIC
+	if(alloc_chrdev_region(&dev, 0, 1000, DEVICE_NAME) == 0)	//allocate major-minor dynamically
+#endif
+//#elif
+#ifdef MAJOR_MINOR_STATIC
+	if(register_chrdev_region(dev, 1, DEVICE_NAME) == 0)	//allocate major-minor statically
+#endif
+	{
+#ifdef MAJOR_MINOR_STATIC
+		printk(KERN_INFO "Static allocating of major-minor success\n");
+#endif
+#ifdef MAJOR_MINOR_DYNAMIC
+		printk(KERN_INFO "Dynamic allocating of major-minor success\n");
+#endif
+		printk(KERN_INFO "Major = %d,Minor  = %d\n",MAJOR(dev), MINOR(dev));
+	}
 	printk(KERN_INFO "ValueETX = %d  \n", valueETX);
         printk(KERN_INFO "cb_valueETX = %d  \n", cb_valueETX);
         printk(KERN_INFO "NameETX = %s \n", nameETX);
@@ -109,6 +141,8 @@ return param     : void
 
 static void sample_module_exit(void)
 {
+	unregister_chrdev_region(dev, 1);	//unregister major-minor
+	printk(KERN_INFO "unreg of module successfully\n");
 	printk(KERN_INFO "Exiting exit module success at %s ,%d\n", __func__, __LINE__);
 	return;
 }
