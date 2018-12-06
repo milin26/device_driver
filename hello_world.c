@@ -1,5 +1,5 @@
 /************************************************************************************************
-FileName : simple_driver.c
+FileName : hello_world.c
 Author	 : MILIN PATEL 
 TeamLead: Rajesh Dommaraju 
 Details  : It is a simple HelloWorld driver to load a module in the kernel, 
@@ -14,7 +14,8 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 //#include<linux/kernel.h>
 //#include<linux/init.h>
 #include<linux/module.h>
-#include <linux/fs.h>	//included to resolve the error of major-minor functions and MKDEV,MAJOR,MINOR as well
+#include <linux/fs.h>		//included to resolve the error of major-minor functions and MKDEV,MAJOR,MINOR as well
+#include <linux/device.h>	//include to resolve the error for class_create(), device_create(), class_destroy(), device_destroy() func.
 //#include <linux/module.h>
 /*******************************************************************************
 			 LOCAL MACROS		
@@ -25,10 +26,11 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 #define U_MODULE_DESCRIPTION	"MAJOR MINOR NUMBER"
 #define U_MODULE_VERSION	"0:1.2"
 
-#define DEVICE_NAME "stone_victor"
 //#define MAJOR_MINOR_STATIC
-#define MAJOR_MINOR_DYNAMIC
-
+#define MAJOR_MINOR_DYNAMIC	
+#define DEVICE_NAME 		"stone_victor"
+#define DEVICE_CLASS_NAME	"stone_class"
+#define DEVICE_FILE_NAME	"stone_dev"
 /*******************************************************************************
 			 LOCAL TYPEDEFS		
 *******************************************************************************/
@@ -44,7 +46,7 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 /*******************************************************************************
 			LOCAL FUNCTIONS		
 *******************************************************************************/
-/*---------------------------static major minor number allocation-------------*/
+/*---------------static/dynamic major minor number allocation-----------------*/
 #ifdef MAJOR_MINOR_DYNAMIC
 	dev_t dev = 0;
 #endif
@@ -53,6 +55,7 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 #endif
 
 /*----------------------------------------------------------------------------*/
+static struct class *dev_class;
 /*---------------------------Module parameters--------------------------------*/
 int valueETX, arr_valueETX[4];//1, 2
 char *nameETX;//3
@@ -101,11 +104,11 @@ input param      : void
 return param     : signed integer
 **********************************************************************************************/
 
-static int sample_module_init(void)
+static int __init sample_module_init(void)
 {
 	int i=0;
 #ifdef MAJOR_MINOR_DYNAMIC
-	if(alloc_chrdev_region(&dev, 0, 1000, DEVICE_NAME) == 0)	//allocate major-minor dynamically
+	if(alloc_chrdev_region(&dev, 0, 1, DEVICE_NAME) == 0)	//allocate major-minor dynamically
 #endif
 //#elif
 #ifdef MAJOR_MINOR_STATIC
@@ -120,6 +123,36 @@ static int sample_module_init(void)
 #endif
 		printk(KERN_INFO "Major = %d,Minor  = %d\n",MAJOR(dev), MINOR(dev));
 	}
+	else
+	{
+#ifdef MAJOR_MINOR_STATIC
+		printk(KERN_INFO "Static allocating of major-minor failed\n");
+#endif
+#ifdef MAJOR_MINOR_DYNAMIC
+		printk(KERN_INFO "Dynamic allocating of major-minor failed\n");
+#endif
+
+	}
+	dev_class = class_create(THIS_MODULE, DEVICE_CLASS_NAME);
+	if(dev_class == NULL)
+	{
+		printk(KERN_INFO "Cannot create the struct class for device\n");
+		unregister_chrdev_region(dev,1);
+		return -1;
+		
+	}
+	else
+		printk(KERN_INFO "struct class creation success\n");
+	if(device_create(dev_class, NULL, dev, NULL, DEVICE_FILE_NAME) == NULL)
+	{
+		//device_create function call will return struct device pointer...
+		printk(KERN_INFO "Cannot create the Device\n");
+		class_destroy(dev_class);
+		return -1;
+	}
+	else
+		printk(KERN_INFO "device file creation success\n");
+
 	printk(KERN_INFO "ValueETX = %d  \n", valueETX);
         printk(KERN_INFO "cb_valueETX = %d  \n", cb_valueETX);
         printk(KERN_INFO "NameETX = %s \n", nameETX);
@@ -139,8 +172,10 @@ input param      : void
 return param     : void
 **********************************************************************************************/
 
-static void sample_module_exit(void)
+static void __exit sample_module_exit(void)
 {
+	device_destroy(dev_class, dev);		//remove device-file
+	class_destroy(dev_class);		//destroy struct class
 	unregister_chrdev_region(dev, 1);	//unregister major-minor
 	printk(KERN_INFO "unreg of module successfully\n");
 	printk(KERN_INFO "Exiting exit module success at %s ,%d\n", __func__, __LINE__);
