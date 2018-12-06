@@ -23,7 +23,7 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 
 #define U_MODULE_LICENSE	"GPL"
 #define U_MODULE_AUTHOR		"MILIN@SPANIDEA"
-#define U_MODULE_DESCRIPTION	"MAJOR MINOR NUMBER"
+#define U_MODULE_DESCRIPTION	"DEVICE FILE CREATION"
 #define U_MODULE_VERSION	"0:1.2"
 
 //#define MAJOR_MINOR_STATIC
