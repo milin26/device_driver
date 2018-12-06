@@ -65,11 +65,12 @@
 #};
 
 #Directory/file which are important:
-#1. /dev - 	   will have the device file, by using "ls -l" command we can get the major-minor number
-#2. /proc/devices - driver with major number 
-#3. /proc/modules - will give module list,lsmod will also give the list of module
-#4. /sys/module -   will have our module entry under it when we use module_param();
-
+#1. /dev - 	   	   will have the device file, by using "ls -l" command we can get the major-minor number
+#2. /proc/devices - 	   driver with major number 
+#3. /proc/modules - 	   will give module list,lsmod will also give the list of module
+#4. /sys/module -   	   will have our module entry under it when we use module_param();
+#5. /sys/devices/virtual - It hold the created struct class directory, under this directory device file(the file name which used in module)
+#			   named directory will be there. 
 #Important command:
 #1. dmesg - 		   dmesg | tail -10, will get the kernel message, we can also see these messages under /var/log/syslog file as well.
 #2. echo value > filepath - to change the value of parameter we will use it.
