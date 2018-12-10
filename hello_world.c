@@ -4,7 +4,8 @@ Author	 : MILIN PATEL
 TeamLead: Rajesh Dommaraju 
 Details  : It is a simple HelloWorld driver to load a module in the kernel, 
 	   passing the parameters, update parameter from command line, 
-	   get notification message as well for it.  
+	   get notification message as well for it, insert file operation and
+	   cdev structure.  
 License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 ************************************************************************************************/
 
@@ -16,15 +17,15 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 #include<linux/module.h>
 #include <linux/fs.h>		//included to resolve the error of major-minor functions and MKDEV,MAJOR,MINOR as well
 #include <linux/device.h>	//include to resolve the error for class_create(), device_create(), class_destroy(), device_destroy() func.
-//#include <linux/module.h>
+#include <linux/cdev.h>		//include to resolve the error for cdev_init(), cdev_add(), cdev_del() func.
 /*******************************************************************************
 			 LOCAL MACROS		
 *******************************************************************************/
 
 #define U_MODULE_LICENSE	"GPL"
 #define U_MODULE_AUTHOR		"MILIN@SPANIDEA"
-#define U_MODULE_DESCRIPTION	"DEVICE FILE CREATION"
-#define U_MODULE_VERSION	"0:1.2"
+#define U_MODULE_DESCRIPTION	"DEVICE FILE OPERATION"
+#define U_MODULE_VERSION	"0:1.3"
 
 //#define MAJOR_MINOR_STATIC
 #define MAJOR_MINOR_DYNAMIC	
@@ -56,6 +57,7 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 
 /*----------------------------------------------------------------------------*/
 static struct class *dev_class;
+static struct cdev my_dev;
 /*---------------------------Module parameters--------------------------------*/
 int valueETX, arr_valueETX[4];//1, 2
 char *nameETX;//3
@@ -93,9 +95,20 @@ module_param_cb(cb_valueETX, &my_param_ops, &cb_valueETX,S_IWUSR |S_IRUSR);//4
 /*----------------------------------------------------------------------------*/
 
 
-static int sample_module_init(void);
-static void sample_module_exit(void);
+static int     sample_module_init(void);
+static void    sample_module_exit(void);
+static int     sample_module_open(struct inode *inode, struct file *filep);
+static int     sample_module_release(struct inode *inode, struct file *filep);
+static ssize_t sample_module_read(struct file *filep, char __user *buff, size_t len, loff_t *off);
+static ssize_t sample_module_write(struct file *filep, const char __user *buff, size_t len, loff_t *off);
 
+static struct file_operations my_ops = {
+	.owner   = THIS_MODULE,
+	.open    = sample_module_open,
+	.read    = sample_module_read,
+	.write   = sample_module_write,
+	.release = sample_module_release,  
+};
 /**********************************************************************************************
 function	 : sample_module_init
 description	 : This function is initialised when module gets inserted.
@@ -103,6 +116,30 @@ description	 : This function is initialised when module gets inserted.
 input param      : void
 return param     : signed integer
 **********************************************************************************************/
+
+static int sample_module_open(struct inode *inode, struct file *filep)
+{
+	printk(KERN_INFO "%s has been called...\n", __func__);
+	return 0;
+}
+
+static int sample_module_release(struct inode *inode, struct file *filep)
+{
+	printk(KERN_INFO "%s has been called...\n", __func__);
+	return 0;
+}
+
+static ssize_t sample_module_read(struct file *filep, char __user *buff, size_t len, loff_t *off)
+{
+	printk(KERN_INFO "%s has been called...\n", __func__);
+	return len;
+}
+
+static ssize_t sample_module_write(struct file *filep, const char __user *buff, size_t len, loff_t *off)
+{
+	printk(KERN_INFO "%s has been called...\n", __func__);
+	return len;
+}
 
 static int __init sample_module_init(void)
 {
@@ -133,6 +170,19 @@ static int __init sample_module_init(void)
 #endif
 
 	}
+	/*Creating cdev structure*/
+	cdev_init(&my_dev, &my_ops);
+
+	if(cdev_add(&my_dev, dev, 1) < 0)
+	{
+		printk(KERN_INFO "cdev_add function call failed");
+		unregister_chrdev_region(dev, 1);
+		return -1;
+	}
+	else
+	{
+		printk(KERN_INFO "cdev_add function call success");
+	}
 	dev_class = class_create(THIS_MODULE, DEVICE_CLASS_NAME);
 	if(dev_class == NULL)
 	{
@@ -160,7 +210,7 @@ static int __init sample_module_init(void)
 	{
                 printk(KERN_INFO "Arr_value[%d] = %d\n", i, arr_valueETX[i]);
         }
-	printk(KERN_INFO "Initialize init module Success at %s ,%d\n", __func__, __LINE__);
+	printk(KERN_INFO "Init module Initialization Success at %s ,%d\n", __func__, __LINE__);
 	return 0;
 }
 
@@ -176,6 +226,7 @@ static void __exit sample_module_exit(void)
 {
 	device_destroy(dev_class, dev);		//remove device-file
 	class_destroy(dev_class);		//destroy struct class
+	cdev_del(&my_dev);
 	unregister_chrdev_region(dev, 1);	//unregister major-minor
 	printk(KERN_INFO "unreg of module successfully\n");
 	printk(KERN_INFO "Exiting exit module success at %s ,%d\n", __func__, __LINE__);

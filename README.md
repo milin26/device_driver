@@ -55,7 +55,72 @@
 		- ... > variable argument
 #3. void class_destroy(struct class*);
 #4. void device_destroy(struct class *, dev_t dev);
- 
+
+Cdev structure operations:
+1. struct cdev *my_dev;, struct file_operations *my_ops;
+2. void cdev_init(struct cdev *cdev, struct file_operations *fops);
+3. int cdev_add(struct cdev *dev, dev_t num, unsigned int count);
+4. void cdev_del(struct cdev *dev);
+
+cdev structure:
+struct cdev { 
+    struct kobject kobj; 
+    struct module *owner; 
+    const struct file_operations *ops; 
+    struct list_head list; 
+    dev_t dev; 
+    unsigned int count; 
+};
+
+file_operations structure:
+struct file_operations {
+    struct module *owner;
+    loff_t (*llseek) (struct file *, loff_t, int);
+    ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);
+    ssize_t (*write) (struct file *, const char __user *, size_t, loff_t *);
+    ssize_t (*read_iter) (struct kiocb *, struct iov_iter *);
+    ssize_t (*write_iter) (struct kiocb *, struct iov_iter *);
+    int (*iterate) (struct file *, struct dir_context *);
+    int (*iterate_shared) (struct file *, struct dir_context *);
+    unsigned int (*poll) (struct file *, struct poll_table_struct *);
+    long (*unlocked_ioctl) (struct file *, unsigned int, unsigned long);
+    long (*compat_ioctl) (struct file *, unsigned int, unsigned long);
+    int (*mmap) (struct file *, struct vm_area_struct *);
+    int (*open) (struct inode *, struct file *);
+    int (*flush) (struct file *, fl_owner_t id);
+    int (*release) (struct inode *, struct file *);
+    int (*fsync) (struct file *, loff_t, loff_t, int datasync);
+    int (*fasync) (int, struct file *, int);
+    int (*lock) (struct file *, int, struct file_lock *);
+    ssize_t (*sendpage) (struct file *, struct page *, int, size_t, loff_t *, int);
+    unsigned long (*get_unmapped_area)(struct file *, unsigned long, unsigned long, unsigned long, unsigned long);
+    int (*check_flags)(int);
+    int (*flock) (struct file *, int, struct file_lock *);
+    ssize_t (*splice_write)(struct pipe_inode_info *, struct file *, loff_t *, size_t, unsigned int);
+    ssize_t (*splice_read)(struct file *, loff_t *, struct pipe_inode_info *, size_t, unsigned int);
+    int (*setlease)(struct file *, long, struct file_lock **, void **);
+    long (*fallocate)(struct file *file, int mode, loff_t offset,
+              loff_t len);
+    void (*show_fdinfo)(struct seq_file *m, struct file *f);
+#ifndef CONFIG_MMU
+    unsigned (*mmap_capabilities)(struct file *);
+#endif
+    ssize_t (*copy_file_range)(struct file *, loff_t, struct file *,
+            loff_t, size_t, unsigned int);
+    int (*clone_file_range)(struct file *, loff_t, struct file *, loff_t,
+            u64);
+    ssize_t (*dedupe_file_range)(struct file *, u64, u64, struct file *,
+            u64);
+};
+
+Important fields of file_operations structure for us as of now:
+1. struct module *owner:
+2. ssize_t (*read) (struct file *, char _ _user *, size_t, loff_t *);
+3  ssize_t (*write) (struct file *, const char _ _user *, size_t, loff_t *);
+4. int (*ioctl) (struct inode *, struct file *, unsigned int, unsigned long);
+5. int (*open) (struct inode *, struct file *);
+6. int (*release) (struct inode *, struct file *);
+
 #structure where we will register event handler:
 #const struct kernel_param_ops my_param_ops = 
 #{
@@ -73,13 +138,13 @@
 #			   named directory will be there. 
 #Important command:
 #1. dmesg - 		   dmesg | tail -10, will get the kernel message, we can also see these messages under /var/log/syslog file as well.
-#2. echo value > filepath - to change the value of parameter we will use it.
+#2. echo value > filepath - to change the value of parameter we will use it, can be use to write in device-node as well.
 
 #Header file being used till now:
 #1. linux/module.h - For all previous module only this header is enough.
 #2. linux/fs.h     - for MKDEV, MAJOR, MINOR, register_chrdev_region(), unregister_chrdev_region(), alloc_chrdev_region().
 #3. linux/device.h - Automatic creation of device file func, 
-
+#4. linux/cdev.h   - Include to resolve the error for cdev_init(), cdev_add(), cdev_del() func.
 #Note : 
 #	Make sure before you run "make" command be super user using "sudo -i".
 #	param_set_int(val, kp); // Use helper for write variable
