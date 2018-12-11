@@ -56,11 +56,11 @@
 #3. void class_destroy(struct class*);
 #4. void device_destroy(struct class *, dev_t dev);
 
-Cdev structure operations:
-1. struct cdev *my_dev;, struct file_operations *my_ops;
-2. void cdev_init(struct cdev *cdev, struct file_operations *fops);
-3. int cdev_add(struct cdev *dev, dev_t num, unsigned int count);
-4. void cdev_del(struct cdev *dev);
+#Cdev structure operations:
+#1. struct cdev my_dev;, struct file_operations my_ops;
+#2. void cdev_init(struct cdev *cdev, struct file_operations *fops);
+#3. int cdev_add(struct cdev *dev, dev_t num, unsigned int count);
+#4. void cdev_del(struct cdev *dev);
 
 cdev structure:
 struct cdev { 
@@ -121,6 +121,12 @@ Important fields of file_operations structure for us as of now:
 5. int (*open) (struct inode *, struct file *);
 6. int (*release) (struct inode *, struct file *);
 
+#device file operation with memory allocation:
+#1. void * kmalloc(size_t size, gfp_t flags);	//allocate memory dynamically in kernel area
+#2. void kfree(const void *objp); 		//free memory allocated by kmalloc
+#3. unsigned long copy_to_user(const __user void *to, void *from, unsigned long len);	//copy data from kernel to user space 
+#4. unsigned long copy_from_user(void *to, const __user void *from, unsigned long n);	//copy data from user to kernel space
+
 #structure where we will register event handler:
 #const struct kernel_param_ops my_param_ops = 
 #{
@@ -145,6 +151,9 @@ Important fields of file_operations structure for us as of now:
 #2. linux/fs.h     - for MKDEV, MAJOR, MINOR, register_chrdev_region(), unregister_chrdev_region(), alloc_chrdev_region().
 #3. linux/device.h - Automatic creation of device file func, 
 #4. linux/cdev.h   - Include to resolve the error for cdev_init(), cdev_add(), cdev_del() func.
+#5. linux/slab.h   - include to resolve the error for kmalloc and kfree.
+#6. linux/uaccess.h- include for copy_to_user and copy_from_user.
+
 #Note : 
 #	Make sure before you run "make" command be super user using "sudo -i".
 #	param_set_int(val, kp); // Use helper for write variable

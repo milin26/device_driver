@@ -18,20 +18,23 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 #include <linux/fs.h>		//included to resolve the error of major-minor functions and MKDEV,MAJOR,MINOR as well
 #include <linux/device.h>	//include to resolve the error for class_create(), device_create(), class_destroy(), device_destroy() func.
 #include <linux/cdev.h>		//include to resolve the error for cdev_init(), cdev_add(), cdev_del() func.
+#include <linux/slab.h>		//include to resolve the error for kmalloc()
+#include <linux/uaccess.h>	//copy_to_user(), copy_from_user()
 /*******************************************************************************
 			 LOCAL MACROS		
 *******************************************************************************/
 
 #define U_MODULE_LICENSE	"GPL"
 #define U_MODULE_AUTHOR		"MILIN@SPANIDEA"
-#define U_MODULE_DESCRIPTION	"DEVICE FILE OPERATION"
-#define U_MODULE_VERSION	"0:1.3"
+#define U_MODULE_DESCRIPTION	"REAL DEVICE DRIVER FILE OPERATION"
+#define U_MODULE_VERSION	"0:1.4"
 
 //#define MAJOR_MINOR_STATIC
 #define MAJOR_MINOR_DYNAMIC	
 #define DEVICE_NAME 		"stone_victor"
 #define DEVICE_CLASS_NAME	"stone_class"
 #define DEVICE_FILE_NAME	"stone_dev"
+#define MEM_SIZE		1024
 /*******************************************************************************
 			 LOCAL TYPEDEFS		
 *******************************************************************************/
@@ -62,6 +65,8 @@ static struct cdev my_dev;
 int valueETX, arr_valueETX[4];//1, 2
 char *nameETX;//3
 int cb_valueETX = 0;//4
+uint8_t *mem_buffer = NULL;
+int byte = 0;
 
 module_param(valueETX, int, S_IWUSR |S_IRUSR);//1
 module_param_array(arr_valueETX, int, NULL, S_IWUSR |S_IRUSR);//2
@@ -119,24 +124,61 @@ return param     : signed integer
 
 static int sample_module_open(struct inode *inode, struct file *filep)
 {
-	printk(KERN_INFO "%s has been called...\n", __func__);
+//	if((mem_buffer = (uint8_t *)kmalloc(MEM_SIZE, GFP_KERNEL)) == NULL)
+//	{
+//		printk(KERN_INFO "failed to allocate memmory\n");
+//		return -1;
+//	}	
+//	printk(KERN_INFO "memory allocated at %p\n", mem_buffer);
+	printk(KERN_INFO "%s function has been called...\n", __FUNCTION__);
 	return 0;
 }
 
 static int sample_module_release(struct inode *inode, struct file *filep)
 {
+	kfree((const void *)mem_buffer);
 	printk(KERN_INFO "%s has been called...\n", __func__);
 	return 0;
 }
 
 static ssize_t sample_module_read(struct file *filep, char __user *buff, size_t len, loff_t *off)
 {
+	if(len > MEM_SIZE)
+	{
+		printk(KERN_WARNING "user data size is more than memory while reading!!\n");
+	}else;
+	if((byte = copy_to_user(buff, mem_buffer, len)) > 0)	//no need of typecasting at buff
+	{
+		printk(KERN_INFO "%d bytes could not be coppied...\n", byte);
+	}
+	else
+	{
+		printk(KERN_INFO "data read done!\n");
+	}
 	printk(KERN_INFO "%s has been called...\n", __func__);
 	return len;
 }
 
 static ssize_t sample_module_write(struct file *filep, const char __user *buff, size_t len, loff_t *off)
 {
+	if((mem_buffer = (uint8_t *)kmalloc(len, GFP_KERNEL)) == NULL)
+	{
+		printk(KERN_INFO "failed to allocate memmory\n");
+		return -1;
+	}	
+	if(len > MEM_SIZE)
+	{
+		printk(KERN_WARNING "user data size is more than memory while writing!!\n");
+	}else;
+	if ((byte = copy_from_user(mem_buffer, buff, len)) > 0)		//no need of typecasting at buff
+	{
+		printk(KERN_INFO "%d bytes could not be coppied...\n", byte);
+
+	}
+	else
+	{
+		printk(KERN_INFO "data write done!\n");
+	}
 	printk(KERN_INFO "%s has been called...\n", __func__);
 	return len;
 }
