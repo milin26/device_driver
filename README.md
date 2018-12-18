@@ -1,6 +1,7 @@
 # device_driver
 #init_tutorial
 
+------------------------------------------------------------------------------------------------------------------------------------------
 #File : hello_world.c
 #Description :
 #		This file is a simple Hello World module. 
@@ -8,6 +9,7 @@
 #		Contains module parameter passing mechanism.
 #		Contains major minor concept.
 		
+------------------------------------------------------------------------------------------------------------------------------------------
 #Steps to compile :
 #1.Run				make
 #2.Insert module			sudo insmod hello_world.ko
@@ -17,18 +19,19 @@
 #5.Remove module			sudo rmmod hello
 #6.Run				make clean
 
-
+------------------------------------------------------------------------------------------------------------------------------------------
 #Keypoints to remember:
 #1.static int hello_init();	user defined function
 #2.void hello_exit();		user defined function
 #3.module_init();		will pass the init function
 #4.module_exit();		will pass the exit function
-
+------------------------------------------------------------------------------------------------------------------------------------------
 #Macros for module parameters:
 #1.module_param();
 #2.module_param_array();
 #3.module_param_cb();
 
+------------------------------------------------------------------------------------------------------------------------------------------
 #Allocating Major-Minor number:
 #1.statically allocating : int register_chrdev_region(dev_t dev, unsigned int first, char *name);.
 #2. Dynamically allocating : int alloc_chrdev_region(dev_t *dev, unsigned int firstminor, unsigned int count, char *name);.
@@ -36,6 +39,7 @@
 #4.To create major-minor structure(dev_t) : MKDEV(int major, int minor);.
 #5.To get major-minor number : MAJOR(dev_t dev), and MINOR(dev_t dev);.
 
+------------------------------------------------------------------------------------------------------------------------------------------
 #Creating device file manually:
 #1. mknod -m <permissions> <name> <dev_type> <major> <minor> - permissions and -m flag are optional can be modified by chmod afterwards, 
 							      name should be the absolute path,
@@ -43,6 +47,7 @@
 							      major and minor whould be the major, minor number assigned to driver
 #2. rm filename - To remove device file created manually
 
+------------------------------------------------------------------------------------------------------------------------------------------
 #Creating device file automatically:
 #1. struct class * class_create(struct module * owner, const char * name) - owner > THIS_MODULE
 									   name > name of this class
@@ -56,6 +61,7 @@
 #3. void class_destroy(struct class*);
 #4. void device_destroy(struct class *, dev_t dev);
 
+------------------------------------------------------------------------------------------------------------------------------------------
 #Cdev structure operations:
 #1. struct cdev my_dev;, struct file_operations my_ops;
 #2. void cdev_init(struct cdev *cdev, struct file_operations *fops);
@@ -113,20 +119,30 @@ struct file_operations {
             u64);
 };
 
+------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------
 Important fields of file_operations structure for us as of now:
 1. struct module *owner:
 2. ssize_t (*read) (struct file *, char _ _user *, size_t, loff_t *);
 3  ssize_t (*write) (struct file *, const char _ _user *, size_t, loff_t *);
-4. int (*ioctl) (struct inode *, struct file *, unsigned int, unsigned long);
+4. int (*ioctl) (struct inode *, struct file *, unsigned int, unsigned long);...this one was used in old version of kernel, now it changes to long unlocked_ioctl(struct file*,unsigned int, unsigned long)
 5. int (*open) (struct inode *, struct file *);
 6. int (*release) (struct inode *, struct file *);
 
+------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------
+
+
+------------------------------------------------------------------------------------------------------------------------------------------
 #device file operation with memory allocation:
 #1. void * kmalloc(size_t size, gfp_t flags);	//allocate memory dynamically in kernel area
 #2. void kfree(const void *objp); 		//free memory allocated by kmalloc
 #3. unsigned long copy_to_user(const __user void *to, void *from, unsigned long len);	//copy data from kernel to user space 
 #4. unsigned long copy_from_user(void *to, const __user void *from, unsigned long n);	//copy data from user to kernel space
-
+#5. void * vmalloc(unsigned long size);
+#6. void vfree(const char *);
+//for more in detail refer MI-II note.
+------------------------------------------------------------------------------------------------------------------------------------------
 #structure where we will register event handler:
 #const struct kernel_param_ops my_param_ops = 
 #{
@@ -135,6 +151,7 @@ Important fields of file_operations structure for us as of now:
 #	.free = //[void(*free)(void *args)]
 #};
 
+------------------------------------------------------------------------------------------------------------------------------------------
 #Directory/file which are important:
 #1. /dev - 	   	   will have the device file, by using "ls -l" command we can get the major-minor number
 #2. /proc/devices - 	   driver with major number 
@@ -142,10 +159,20 @@ Important fields of file_operations structure for us as of now:
 #4. /sys/module -   	   will have our module entry under it when we use module_param();
 #5. /sys/devices/virtual - It hold the created struct class directory, under this directory device file(the file name which used in module)
 #			   named directory will be there. 
+#6. /var/lib/usbutils    - To check vendor-id of USB's.
+------------------------------------------------------------------------------------------------------------------------------------------
 #Important command:
 #1. dmesg - 		   dmesg | tail -10, will get the kernel message, we can also see these messages under /var/log/syslog file as well.
 #2. echo value > filepath - to change the value of parameter we will use it, can be use to write in device-node as well.
-
+#3. getconf -a > get page size info and many other(ex d-type cache, i-type cache, and other cache related info as well)
+#4. swapon -s > get swap memory size detail
+#5. lscpu > get CPU related information
+#6. ulimit -a > get sizes related info (ex. stack size on our system)
+#7. free -m > get info of how much memory being used and free, -g for gigabytes, -m megabytes, -h human readable/understandable format
+#8. press escape, then gg then =, then G to autoformat the file in vim/vi editor
+#9. press escape then , :set number to set number in vi editor
+#10. :set nonumber to remove line number from vi/vim editor
+------------------------------------------------------------------------------------------------------------------------------------------
 #Header file being used till now:
 #1. linux/module.h - For all previous module only this header is enough.
 #2. linux/fs.h     - for MKDEV, MAJOR, MINOR, register_chrdev_region(), unregister_chrdev_region(), alloc_chrdev_region().
@@ -153,7 +180,21 @@ Important fields of file_operations structure for us as of now:
 #4. linux/cdev.h   - Include to resolve the error for cdev_init(), cdev_add(), cdev_del() func.
 #5. linux/slab.h   - include to resolve the error for kmalloc and kfree.
 #6. linux/uaccess.h- include for copy_to_user and copy_from_user.
+#7. linux/ioctl.h  - for ioctl system call
+------------------------------------------------------------------------------------------------------------------------------------------
+#Ways to communicate between user space and kernel space:
+#	ioctl,sysfs,procfs,sysctl,UDP socket,netlink socket, configfs,debugfs
 
+#ioctl for i/o control:	Interface to communicate between User space and Kernel space
+#1. Steps need to follow to use ioctl
+#	i] 	create ioctl command in driver
+#			(#define IOCTL_COMMAND_NAME __IOX(magic number, command number, arg data type))
+#	ii]	write ioctl function in driver and assign/register it to .unlocked_ioctl member of file_operations structure
+#			(long ioctl_func(struct file *fp, unsigned int command, unsigned long arg))
+#	iii]	create ioctl command in user space same as driver
+#	v]	use ioctl system call from user space
+#			long ioctl(struct file *, ioctl_command,Arg)
+------------------------------------------------------------------------------------------------------------------------------------------
 #Note : 
 #	Make sure before you run "make" command be super user using "sudo -i".
 #	param_set_int(val, kp); // Use helper for write variable
@@ -167,3 +208,8 @@ Important fields of file_operations structure for us as of now:
 
 #			   The __exit macro causes the omission of the function when the module is built into the kernel, and like __exit, has no effect for loadable modules.
 #			   Again, if you consider when the cleanup function runs, this makes complete sense; built-in drivers don't need a cleanup function, while loadable modules do.
+#	ioctl is used when we want to implement specific functionality in driver for device, otherwise just for read and write operation copy_to_user and copy_from_user is already there.
+------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------

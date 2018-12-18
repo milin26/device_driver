@@ -20,14 +20,15 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 #include <linux/cdev.h>		//include to resolve the error for cdev_init(), cdev_add(), cdev_del() func.
 #include <linux/slab.h>		//include to resolve the error for kmalloc()
 #include <linux/uaccess.h>	//copy_to_user(), copy_from_user()
+#include <linux/ioctl.h>	//ioctl
 /*******************************************************************************
 			 LOCAL MACROS		
 *******************************************************************************/
 
 #define U_MODULE_LICENSE	"GPL"
 #define U_MODULE_AUTHOR		"MILIN@SPANIDEA"
-#define U_MODULE_DESCRIPTION	"REAL DEVICE DRIVER FILE OPERATION"
-#define U_MODULE_VERSION	"0:1.4"
+#define U_MODULE_DESCRIPTION	"IOCTL"
+#define U_MODULE_VERSION	"0:1.5"
 
 //#define MAJOR_MINOR_STATIC
 #define MAJOR_MINOR_DYNAMIC	
@@ -35,21 +36,9 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 #define DEVICE_CLASS_NAME	"stone_class"
 #define DEVICE_FILE_NAME	"stone_dev"
 #define MEM_SIZE		1024
-/*******************************************************************************
-			 LOCAL TYPEDEFS		
-*******************************************************************************/
+#define LKM_WR_VALUE		_IOW('.', '.', int32_t*)
+#define LKM_RD_VALUE		_IOR('.', '@', int32_t*)
 
-/*******************************************************************************
-			GLOBAL VARIABLES		
-*******************************************************************************/
-
-/*******************************************************************************
-			LOCAL VARIABLES		
-*******************************************************************************/
-
-/*******************************************************************************
-			LOCAL FUNCTIONS		
-*******************************************************************************/
 /*---------------static/dynamic major minor number allocation-----------------*/
 #ifdef MAJOR_MINOR_DYNAMIC
 	dev_t dev = 0;
@@ -67,6 +56,7 @@ char *nameETX;//3
 int cb_valueETX = 0;//4
 uint8_t *mem_buffer = NULL;
 int byte = 0;
+int32_t value = 0;
 
 module_param(valueETX, int, S_IWUSR |S_IRUSR);//1
 module_param_array(arr_valueETX, int, NULL, S_IWUSR |S_IRUSR);//2
@@ -106,13 +96,15 @@ static int     sample_module_open(struct inode *inode, struct file *filep);
 static int     sample_module_release(struct inode *inode, struct file *filep);
 static ssize_t sample_module_read(struct file *filep, char __user *buff, size_t len, loff_t *off);
 static ssize_t sample_module_write(struct file *filep, const char __user *buff, size_t len, loff_t *off);
+static long    sample_module_ioctl(struct file *filep, unsigned int command_name, unsigned long arg);
 
 static struct file_operations my_ops = {
-	.owner   = THIS_MODULE,
-	.open    = sample_module_open,
-	.read    = sample_module_read,
-	.write   = sample_module_write,
-	.release = sample_module_release,  
+	.owner   	= THIS_MODULE,
+	.open    	= sample_module_open,
+	.read    	= sample_module_read,
+	.write   	= sample_module_write,
+	.unlocked_ioctl = sample_module_ioctl,
+	.release 	= sample_module_release,  
 };
 /**********************************************************************************************
 function	 : sample_module_init
@@ -181,6 +173,21 @@ static ssize_t sample_module_write(struct file *filep, const char __user *buff, 
 	}
 	printk(KERN_INFO "%s has been called...\n", __func__);
 	return len;
+}
+
+static long sample_module_ioctl(struct file *filep, unsigned int command_name, unsigned long arg)
+{
+	printk(KERN_INFO "command_name = %d in %s function...\n", command_name, __func__);
+	switch(command_name) {
+                case LKM_WR_VALUE:
+                        copy_from_user(&value ,(int32_t*) arg, sizeof(value));
+                        printk(KERN_INFO "Value = %d\n", value);
+                        break;
+                case LKM_RD_VALUE:
+                        copy_to_user((int32_t*) arg, &value, sizeof(value));
+                        break;
+        }
+        return 0;
 }
 
 static int __init sample_module_init(void)
