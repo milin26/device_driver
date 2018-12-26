@@ -152,6 +152,14 @@ Important fields of file_operations structure for us as of now:
 #};
 
 ------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------
+proc entry and related function
+
+1. proc_create(const char *name, umode_t mode, struct proc_dir_entry *parent, const struct file_operations *proc_fops);
+2. remove_proc_entry(const char *name, parent);
+------------------------------------------------------------------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------------------------------------------------------------------
 #Directory/file which are important:
 #1. /dev - 	   	   will have the device file, by using "ls -l" command we can get the major-minor number
 #2. /proc/devices - 	   driver with major number 
@@ -209,6 +217,91 @@ Important fields of file_operations structure for us as of now:
 #			   The __exit macro causes the omission of the function when the module is built into the kernel, and like __exit, has no effect for loadable modules.
 #			   Again, if you consider when the cleanup function runs, this makes complete sense; built-in drivers don't need a cleanup function, while loadable modules do.
 #	ioctl is used when we want to implement specific functionality in driver for device, otherwise just for read and write operation copy_to_user and copy_from_user is already there.
+
+IMPORTANT TOPIC :
+
+When one should use spinlock instead of mutex ?
+ANS :
+
+The Theory
+
+In theory, when a thread tries to lock a mutex and it does not succeed, because the mutex is already locked, it will go to sleep, immediately allowing another thread to run.
+It will continue to sleep until being woken up, which will be the case once the mutex is being unlocked by whatever thread was holding the lock before.
+When a thread tries to lock a spinlock and it does not succeed, it will continuously re-try locking it, until it finally succeeds; thus it will not allow another thread
+to take its place (however, the operating system will forcefully switch to another thread, once the CPU runtime quantum of the current thread has been exceeded, of course).
+
+The Problem
+
+The problem with mutexes is that putting threads to sleep and waking them up again are both rather expensive operations, they'll need quite a lot of CPU instructions and thus also take some time.
+If now the mutex was only locked for a very short amount of time, the time spent in putting a thread to sleep and waking it up again might exceed the time the thread has actually slept by far and
+it might even exceed the time the thread would have wasted by constantly polling on a spinlock. On the other hand, polling on a spinlock will constantly waste CPU time and if the lock is held for a longer amount of time, this will waste a lot more CPU time and it would have been much better if the thread was sleeping instead.
+
+The Solution
+
+Using spinlocks on a "single-core/single-CPU" system makes usually no sense, since as long as the spinlock polling is blocking the only available CPU core, no other thread can run 
+and since no other thread can run, the lock won't be unlocked either. IOW, a spinlock wastes only CPU time on those systems for no real benefit. If the thread was put to sleep instead, 
+another thread could have ran at once, possibly unlocking the lock and then allowing the first thread to continue processing, once it woke up again.
+
+On a "multi-core/multi-CPU systems", with plenty of locks that are held for a very short amount of time only, the time wasted for constantly putting threads to sleep 
+and waking them up again might decrease runtime performance noticeably. When using spinlocks instead, threads get the chance to take advantage of their full runtime 
+quantum (always only blocking for a very short time period, but then immediately continue their work), leading to much higher processing throughput.
+
+The Practice
+
+Since very often programmers cannot know in advance if mutexes or spinlocks will be better (e.g. because the number of CPU cores of the target architecture is unknown), 
+nor can operating systems know if a certain piece of code has been optimized for single-core or multi-core environments, most systems don't strictly distinguish between mutexes and spinlocks. 
+In fact, most modern operating systems have "hybrid mutexes and hybrid spinlocks". What does that actually mean?
+
+A "hybrid mutex behaves" like a spinlock at first on a multi-core system. If a thread cannot lock the mutex, it won't be put to sleep immediately, since the mutex might get unlocked pretty soon, 
+so instead the mutex will first behave exactly like a spinlock. Only if the lock has still not been obtained after a certain amount of time (or retries or any other measuring factor), 
+the thread is really put to sleep. If the same code runs on a system with only a single core, the mutex will not spinlock, though, as, see above, that would not be beneficial.
+
+A "hybrid spinlock" behaves like a normal spinlock at first, but to avoid wasting too much CPU time, it may have a back-off strategy. It will usually not put the thread to sleep 
+(since you don't want that to happen when using a spinlock), but it may decide to stop the thread (either immediately or after a certain amount of time) and allow another thread to run, 
+thus increasing chances that the spinlock is unlocked (a pure thread switch is usually less expensive than one that involves putting a thread to sleep and waking it up again later on, though not by far).
+
+Summary
+
+If in doubt, use mutexes, they are usually the better choice and most modern systems will allow them to spinlock for a very short amount of time, if this seems beneficial. Using spinlocks can sometimes improve performance, but only under certain conditions and the fact that you are in doubt rather tells me, that you are not working on any project currently where a spinlock might be beneficial. You might consider using your own "lock object", that can either use a spinlock or a mutex internally (e.g. this behavior could be configurable when creating such an object), initially use mutexes everywhere and if you think that using a spinlock somewhere might really help, give it a try and compare the results (e.g. using a profiler), but be sure to test both cases, a single-core and a multi-core system before you jump to conclusions (and possibly different operating systems, if your code will be cross-platform).
+
+
+proc_create :
+
+struct proc_dir_entry *create_proc_entry( const char *name, mode_t mode,
+ 
+                                             struct proc_dir_entry *parent );
+ 
+ 
+ 
+struct proc_dir_entry {
+ 
+    const char *name;           // virtual file name
+ 
+    mode_t mode;                // mode permissions
+ 
+    uid_t uid;              // File's user id
+ 
+    gid_t gid;              // File's group id
+ 
+    struct inode_operations *proc_iops; // Inode operations functions
+ 
+    struct file_operations *proc_fops;  // File operations functions
+ 
+    struct proc_dir_entry *parent;      // Parent directory
+ 
+    ...
+ 
+    read_proc_t *read_proc;         // /proc read function
+ 
+    write_proc_t *write_proc;       // /proc write function
+ 
+    void *data;             // Pointer to private data
+ 
+    atomic_t count;             // use count
+ 
+    ...
+ 
+};
 ------------------------------------------------------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------------------------------------------------------
