@@ -78,6 +78,34 @@ struct cdev {
     unsigned int count; 
 };
 
+//use to create sysfs file///////////////////////////////////////////////////
+struct kobject {
+        const char              *name;
+        struct list_head        entry;
+        struct kobject          *parent;
+        struct kset             *kset;
+        struct kobj_type        *ktype;
+        struct kernfs_node      *sd; /* sysfs directory entry */
+        struct kref             kref;
+#ifdef CONFIG_DEBUG_KOBJECT_RELEASE
+        struct delayed_work     release;
+#endif
+        unsigned int state_initialized:1;
+        unsigned int state_in_sysfs:1;
+        unsigned int state_add_uevent_sent:1;
+        unsigned int state_remove_uevent_sent:1;
+        unsigned int uevent_suppress:1;
+};
+
+struct kobj_attribute {
+        struct attribute attr;
+        ssize_t (*show)(struct kobject *kobj, struct kobj_attribute *attr,
+                        char *buf);
+        ssize_t (*store)(struct kobject *kobj, struct kobj_attribute *attr,
+                         const char *buf, size_t count);
+};
+///////////////////////////////////////////////////////////////////////////
+
 file_operations structure:
 struct file_operations {
     struct module *owner;
@@ -180,6 +208,7 @@ proc entry and related function
 #8. press escape, then gg then =, then G to autoformat the file in vim/vi editor
 #9. press escape then , :set number to set number in vi editor
 #10. :set nonumber to remove line number from vi/vim editor
+#11. split : spit the vim editor screen 1 opt 
 ------------------------------------------------------------------------------------------------------------------------------------------
 #Header file being used till now:
 #1. linux/module.h - For all previous module only this header is enough.
@@ -189,6 +218,9 @@ proc entry and related function
 #5. linux/slab.h   - include to resolve the error for kmalloc and kfree.
 #6. linux/uaccess.h- include for copy_to_user and copy_from_user.
 #7. linux/ioctl.h  - for ioctl system call
+#   linux/proc_fs.h
+#8. linux/kobject.h 
+#9. linux/sysfs.h
 ------------------------------------------------------------------------------------------------------------------------------------------
 #Ways to communicate between user space and kernel space:
 #	ioctl,sysfs,procfs,sysctl,UDP socket,netlink socket, configfs,debugfs
@@ -202,6 +234,10 @@ proc entry and related function
 #	iii]	create ioctl command in user space same as driver
 #	v]	use ioctl system call from user space
 #			long ioctl(struct file *, ioctl_command,Arg)
+#procfs for process related information exchanging between kernel and user space
+#sysfs
+
+cdev has member called struct kobject which can be use for creating sysfs in driver.
 ------------------------------------------------------------------------------------------------------------------------------------------
 #Note : 
 #	Make sure before you run "make" command be super user using "sudo -i".

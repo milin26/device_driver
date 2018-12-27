@@ -22,6 +22,8 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 #include <linux/uaccess.h>	//copy_to_user(), copy_from_user()
 #include <linux/ioctl.h>	//ioctl
 #include <linux/proc_fs.h>	//include to resolve the error for proc_create()
+#include <linux/kobject.h>
+#include <linux/sysfs.h>
 /*******************************************************************************
   LOCAL MACROS		
  *******************************************************************************/
@@ -61,6 +63,8 @@ int byte = 0;
 int32_t value = 0;
 char array[20] = "try_proc_array\n";
 static int len = 1;
+volatile int stone_value = 0;
+struct kobject *kobject = &my_dev.kobj;
 
 module_param(valueETX, int, S_IWUSR |S_IRUSR);//1
 module_param_array(arr_valueETX, int, NULL, S_IWUSR |S_IRUSR);//2
@@ -108,6 +112,9 @@ static int     sample_proc_module_release(struct inode *inode, struct file *file
 static ssize_t sample_proc_module_read(struct file *filep, char __user *buff, size_t len, loff_t *off);
 static ssize_t sample_proc_module_write(struct file *filep, const char *buff, size_t len, loff_t *off);
 
+static ssize_t sysfs_read(struct kobject *object, struct kobj_attribute *attr, char *buff);
+static ssize_t sysfs_write(struct kobject *object, struct kobj_attribute *attr, const char *buf, size_t count);
+
 static struct file_operations my_ops = {
 	.owner   	= THIS_MODULE,
 	.open    	= sample_module_open,
@@ -123,6 +130,8 @@ static struct file_operations proc_fops = {
 	.read		= sample_proc_module_read,
 	.write		= sample_proc_module_write
 };
+
+struct kobj_attribute stone_attr = __ATTR(stone_value, 0600, sysfs_read, sysfs_write);
 /**********************************************************************************************
 function	 : sample_module_init
 description	 : This function is initialised when module gets inserted.
@@ -240,6 +249,19 @@ static long sample_module_ioctl(struct file *filep, unsigned int command_name, u
 	return 0;
 }
 
+static ssize_t sysfs_read(struct kobject *object, struct kobj_attribute *attr, char *buff)
+{
+	printk(KERN_INFO "__sysfs read !!!\n");
+	return sprintf(buff, "%d\n", stone_value);
+}
+
+static ssize_t sysfs_write(struct kobject *object, struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	printk(KERN_INFO "__sysfs write\n");
+	sscanf(buf, "%d", &stone_value);
+	return count;
+}
+
 static int __init sample_module_init(void)
 {
 	int i=0;
@@ -305,6 +327,17 @@ static int __init sample_module_init(void)
 	/*Creating Proc entry*/
 	proc_create(PROC_ENTRY, 0666, NULL, &proc_fops);
 
+	/*Creating kobject and sysfs file*/
+	kobject = kobject_create_and_add("stone_sysfs", kernel_kobj);
+	if(sysfs_create_file(kobject, &stone_attr.attr))
+	{
+		printk(KERN_INFO "Failed to create sysfs\n");
+		kobject_put(kobject);
+		sysfs_remove_file(kobject, &stone_attr.attr);
+	}
+	else
+		printk(KERN_INFO "sysfs file created...\n");
+
 	printk(KERN_INFO "ValueETX = %d  \n", valueETX);
 	printk(KERN_INFO "cb_valueETX = %d  \n", cb_valueETX);
 	printk(KERN_INFO "NameETX = %s \n", nameETX);
@@ -326,6 +359,8 @@ return param     : void
 
 static void __exit sample_module_exit(void)
 {
+	sysfs_remove_file(kobject, &stone_attr.attr);
+	kobject_put(kobject);
 	remove_proc_entry(PROC_ENTRY,NULL);
 	device_destroy(dev_class, dev);		//remove device-file
 	class_destroy(dev_class);		//destroy struct class
