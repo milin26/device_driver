@@ -336,7 +336,11 @@ Interrupt can be devided into two part :
 #									pending(one of the element of the work_struct structure) : Set to 1 if the function is already in a work queue list, 0 otherwise
 #									10)int work_pending(&work)
 #									11)int delayed_work_pending(&work)
-#								2)Dynamic method 
+#								2)Dynamic method
+#									API's List : 				
+#									1)INIT_WORK(&work,work_fn): Alternate way to declare work
+#									Other than DECLARE_WORK all api's are common for both static and dynamic method
+#									API's from 2 to 11 in static method can be used for dynamic method
 #						2)Creating own queue
 #				2)threaded IRQs
 #				3)softirqs  : Can be used when deffered work needs not to sleep

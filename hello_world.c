@@ -32,7 +32,7 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 
 #define U_MODULE_LICENSE	"GPL"
 #define U_MODULE_AUTHOR		"MILIN@SPANIDEA"
-#define U_MODULE_DESCRIPTION	"WORKQUEUE_STATIC_METHOD"
+#define U_MODULE_DESCRIPTION	"WORKQUEUE_DYNAMIC_METHOD"
 #define U_MODULE_VERSION	"0:1.6"
 
 //#define MAJOR_MINOR_STATIC
@@ -46,8 +46,6 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 #define LKM_RD_VALUE		_IOR('.', '@', int32_t*)
 
 #define IRQ_NO		11
-
-#define WORKQ
 
 /*******************************************************************************************/
 static int __init  sample_module_init(void);
@@ -73,33 +71,21 @@ static void __exit dummy_irq_exit(void);
 static void workq_func(struct work_struct *work);
 
 /*---------------interrupt_handler--------------------------------------------*/
-#ifdef WORKQ
-//Creating work by static method//
-DECLARE_WORK(created_workq_struct, workq_func);
-#endif
+static struct work_struct created_workq_struct;
 
 static irqreturn_t irq_handler(int irq, void *dev_id)
 {
-/*My observation
-When uncomenting below printk call getting error from do_IRQ
-Only be able to work fine with one printk call, ramdomly this thing happened*/
 	printk(KERN_INFO "SHARED IRQ : Interrupt occured on IRQ %d...\n",irq);
-#ifdef WORKQ
 	schedule_work(&created_workq_struct);
 	printk(KERN_INFO "return value of workqueue_pending call in top half:%d\n", work_pending(&created_workq_struct));
-//	printk(KERN_INFO "return value of workqueue_pending call end\n");
-#endif
 	return IRQ_HANDLED;
 }
 
-#ifdef WORKQ
 static void workq_func(struct work_struct *work)
 {
-	//	struct work_struct *work_local = (struct work_struct*) work;
 	printk(KERN_INFO "bottom half executes...\n");
 	printk(KERN_INFO "return value of workqueue_pending call in bottom half:%d\n", work_pending(&created_workq_struct));
 }
-#endif
 /*----------------------------------------------------------------------------*/
 
 /*---------------static/dynamic major minor number allocation-----------------*/
@@ -398,13 +384,14 @@ static int __init sample_module_init(void)
 
 	dummy_irq_init();
 	enable_irq(IRQ_NO);
-	printk(KERN_INFO "ValueETX = %d  \n", valueETX);
-	printk(KERN_INFO "cb_valueETX = %d  \n", cb_valueETX);
-	printk(KERN_INFO "NameETX = %s \n", nameETX);
-	for (i = 0; i < (sizeof arr_valueETX / sizeof (arr_valueETX[0])); i++)
-	{
-		printk(KERN_INFO "Arr_value[%d] = %d\n", i, arr_valueETX[i]);
-	}
+	INIT_WORK(&created_workq_struct, workq_func);
+	//printk(KERN_INFO "ValueETX = %d  \n", valueETX);
+	//printk(KERN_INFO "cb_valueETX = %d  \n", cb_valueETX);
+	//printk(KERN_INFO "NameETX = %s \n", nameETX);
+	//for (i = 0; i < (sizeof arr_valueETX / sizeof (arr_valueETX[0])); i++)
+	//{
+	//	printk(KERN_INFO "Arr_value[%d] = %d\n", i, arr_valueETX[i]);
+	//}
 	printk(KERN_INFO "Init module Initialization Success at %s ,%d\n", __func__, __LINE__);
 	return 0;
 }
