@@ -26,14 +26,14 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 #include <linux/sysfs.h>
 #include <linux/interrupt.h>
 #include <asm/io.h>
-/*******************************************************************************
-  LOCAL MACROS		
- *******************************************************************************/
+#include <linux/workqueue.h>	//for workqueue
+/************************LOCAL MACROS*******************************************************/
+
 
 #define U_MODULE_LICENSE	"GPL"
 #define U_MODULE_AUTHOR		"MILIN@SPANIDEA"
-#define U_MODULE_DESCRIPTION	"INTERRUPT"
-#define U_MODULE_VERSION	"0:1.5"
+#define U_MODULE_DESCRIPTION	"WORKQUEUE_STATIC_METHOD"
+#define U_MODULE_VERSION	"0:1.6"
 
 //#define MAJOR_MINOR_STATIC
 #define MAJOR_MINOR_DYNAMIC	
@@ -47,25 +47,73 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 
 #define IRQ_NO		11
 
-/*---------------static/dynamic major minor number allocation-----------------*/
+#define WORKQ
 
+/*******************************************************************************************/
+static int __init  sample_module_init(void);
+static void __exit sample_module_exit(void);
+static int         sample_module_open(struct inode *inode, struct file *filep);
+static int         sample_module_release(struct inode *inode, struct file *filep);
+static ssize_t     sample_module_read(struct file *filep, char __user *buff, size_t len, loff_t *off);
+static ssize_t     sample_module_write(struct file *filep, const char __user *buff, size_t len, loff_t *off);
+
+static long    sample_module_ioctl(struct file *filep, unsigned int command_name, unsigned long arg);
+
+static int     sample_proc_module_open(struct inode *inode, struct file *file);
+static int     sample_proc_module_release(struct inode *inode, struct file *file);
+static ssize_t sample_proc_module_read(struct file *filep, char __user *buff, size_t len, loff_t *off);
+static ssize_t sample_proc_module_write(struct file *filep, const char *buff, size_t len, loff_t *off);
+
+static ssize_t sysfs_read(struct kobject *object, struct kobj_attribute *attr, char *buff);
+static ssize_t sysfs_write(struct kobject *object, struct kobj_attribute *attr, const char *buf, size_t count);
+
+static void __init dummy_irq_init(void);
+static void __exit dummy_irq_exit(void);
+
+static void workq_func(struct work_struct *work);
+
+/*---------------interrupt_handler--------------------------------------------*/
+#ifdef WORKQ
+//Creating work by static method//
+DECLARE_WORK(created_workq_struct, workq_func);
+#endif
 
 static irqreturn_t irq_handler(int irq, void *dev_id)
 {
+/*My observation
+When uncomenting below printk call getting error from do_IRQ
+Only be able to work fine with one printk call, ramdomly this thing happened*/
 	printk(KERN_INFO "SHARED IRQ : Interrupt occured on IRQ %d...\n",irq);
+#ifdef WORKQ
+	schedule_work(&created_workq_struct);
+	printk(KERN_INFO "return value of workqueue_pending call in top half:%d\n", work_pending(&created_workq_struct));
+//	printk(KERN_INFO "return value of workqueue_pending call end\n");
+#endif
 	return IRQ_HANDLED;
 }
 
+#ifdef WORKQ
+static void workq_func(struct work_struct *work)
+{
+	//	struct work_struct *work_local = (struct work_struct*) work;
+	printk(KERN_INFO "bottom half executes...\n");
+	printk(KERN_INFO "return value of workqueue_pending call in bottom half:%d\n", work_pending(&created_workq_struct));
+}
+#endif
+/*----------------------------------------------------------------------------*/
+
+/*---------------static/dynamic major minor number allocation-----------------*/
 #ifdef MAJOR_MINOR_DYNAMIC
 dev_t dev = 0;
 #endif
 #ifdef MAJOR_MINOR_STATIC
 dev_t dev = MKDEV(738, 0);
 #endif
-
 /*----------------------------------------------------------------------------*/
+
 static struct class *dev_class;
 static struct cdev my_dev;
+
 /*---------------------------Module parameters--------------------------------*/
 int valueETX, arr_valueETX[4];//1, 2
 char *nameETX;//3
@@ -107,28 +155,7 @@ const struct kernel_param_ops my_param_ops =
 };
 module_param_cb(cb_valueETX, &my_param_ops, &cb_valueETX,S_IWUSR |S_IRUSR);//4
 /*----------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------*/
 
-
-static int __init  sample_module_init(void);
-static void __exit sample_module_exit(void);
-static int         sample_module_open(struct inode *inode, struct file *filep);
-static int         sample_module_release(struct inode *inode, struct file *filep);
-static ssize_t     sample_module_read(struct file *filep, char __user *buff, size_t len, loff_t *off);
-static ssize_t     sample_module_write(struct file *filep, const char __user *buff, size_t len, loff_t *off);
-
-static long    sample_module_ioctl(struct file *filep, unsigned int command_name, unsigned long arg);
-
-static int     sample_proc_module_open(struct inode *inode, struct file *file);
-static int     sample_proc_module_release(struct inode *inode, struct file *file);
-static ssize_t sample_proc_module_read(struct file *filep, char __user *buff, size_t len, loff_t *off);
-static ssize_t sample_proc_module_write(struct file *filep, const char *buff, size_t len, loff_t *off);
-
-static ssize_t sysfs_read(struct kobject *object, struct kobj_attribute *attr, char *buff);
-static ssize_t sysfs_write(struct kobject *object, struct kobj_attribute *attr, const char *buf, size_t count);
-
-static void __init dummy_irq_init(void);
-static void __exit dummy_irq_exit(void);
 
 static struct file_operations my_ops = {
 	.owner   	= THIS_MODULE,
@@ -177,12 +204,6 @@ static void __exit dummy_irq_exit(void)
 
 static int sample_module_open(struct inode *inode, struct file *filep)
 {
-	//	if((mem_buffer = (uint8_t *)kmalloc(MEM_SIZE, GFP_KERNEL)) == NULL)
-	//	{
-	//		printk(KERN_INFO "failed to allocate memmory\n");
-	//		return -1;
-	//	}	
-	//	printk(KERN_INFO "memory allocated at %p\n", mem_buffer);
 	printk(KERN_INFO "%s function has been called...\n", __FUNCTION__);
 	return 0;
 }
@@ -398,6 +419,8 @@ return param     : void
 
 static void __exit sample_module_exit(void)
 {
+	printk(KERN_INFO "return value of workqueue_pending call :%d\n", work_pending(&created_workq_struct));
+	printk(KERN_INFO "return value of flush_work call : %d\n", flush_work(&created_workq_struct));
 	dummy_irq_exit();
 	sysfs_remove_file(kobject, &stone_attr.attr);
 	kobject_put(kobject);

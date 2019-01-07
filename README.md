@@ -209,6 +209,8 @@ proc entry and related function
 #9. press escape then , :set number to set number in vi editor
 #10. :set nonumber to remove line number from vi/vim editor
 #11. split : spit the vim editor screen 1 opt 
+#12. tail -f -n 5 /var/log/syslog : can see the live log under syslog file, -n 5 will give last five lines
+#13. echo "computation_expression" | bc : Command line calculator
 ------------------------------------------------------------------------------------------------------------------------------------------
 #Header file being used till now:
 #1. linux/module.h - For all previous module only this header is enough.
@@ -275,6 +277,71 @@ Important stuff :
 #			Hence executing “asm("int $0x3B")” will raise interrupt IRQ 11.
 #			asm("int $0x3B");  // Corresponding to irq 11
 ------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------
+Interrupt can be devided into two part :
+
+#	1)top half : The part of interrupt will be exicuted when interrupt occurred, should not be lengthy.
+#	2)bottom half : In iterrupt if there is need to proccess the interrupt and it's some how lengthy process then that proccessing part will goes under bottom half.
+#			This can be implemented by four different method listed as :
+#				1)workqueue : Can be used when deffered work needs to sleep
+#						There are 2 methods to implement workqueue lested as :
+#						1)Using global queue
+#							In global queue, no need to create any workqueue or worker thread, we only need to initialize the work.
+#							There are 2 method to initialize workqueue listed as :
+#								1)Static method :
+#									API's list,
+#									1)DECLARE_WORK(name, void (*func)(struct work_struct *)) :
+#										it is macro.
+#										name > The name of work_struct structure has to be created.
+#										func > The function to be schedule in this workqueue.
+#									Below func use to allocate work into kernel-global workqueue
+#									2)int schedule_work(struct work_struct *work) :
+#										Use to put a job in kernel-global workqueue if it is not already
+#										queued and leaves it at the same position on kernel-global workqueue
+#										otherwise.
+#										work > job need to be done.
+#										return 0, if work is already in kernel-global workqueue
+#										return nonzero, otherwise.
+#									3)int schedule_delayed_work(struct delayed_work *dwork, unsigned long delay) :
+#										After waiting till given time this func will put work in the global queue.
+#										dwork > work need to be done.
+#										delay > Number of jiffies* to wait or 0 for immidiate exicution.
+#									4)int schedule_work_on( int cpu, struct work_struct *work ) :
+#										This puts a job on a specific cpu.
+#										where,
+#										cpu > cpu to put the work task on
+#										work > job to be done
+#									5)int scheduled_delayed_work_on(int cpu, struct delayed_work *dwork, unsigned long delay ) :
+#										After waiting for a given time this puts a job in the kernel-global workqueue on the specified CPU.
+#										where,
+#										cpu > cpu to put the work task on
+#										dwork > job to be done
+#										delay > number of jiffies to wait or 0 for immediate execution
+#									Delete work from workqueue
+#									In both cases, the caller blocks until the operation is complete.
+#									6)int flush_work( struct work_struct *work ) :
+#										To flush a particular work item and block until the work is complete.
+#									7)void flush_scheduled_work( void ) :
+#										To flush the kernel-global work queue.
+#									Cancel Work from wprkqueue
+#									You can cancel work if it is not already executing in a handler. 
+#									A call to cancel_work_sync will terminate the work in the queue or 
+#									block until the callback has finished (if the work is already in progress in the handler).
+#									If the work is delayed, you can use a call to cancel_delayed_work_sync.
+#									8)int cancel_work_sync( struct work_struct *work );
+#									9)int cancel_delayed_work_sync( struct delayed_work *dwork );
+#									Check workqueue
+#									Finally, you can find out whether a work item is pending (not yet executed by the handler) 
+#									with a call to work_pending ordelayed_work_pending.
+#									pending(one of the element of the work_struct structure) : Set to 1 if the function is already in a work queue list, 0 otherwise
+#									10)int work_pending(&work)
+#									11)int delayed_work_pending(&work)
+#								2)Dynamic method 
+#						2)Creating own queue
+#				2)threaded IRQs
+#				3)softirqs  : Can be used when deffered work needs not to sleep
+#				4)tasklets  : Can be used when deffered work needs not to sleep
+------------------------------------------------------------------------------------------------------------------------------------------
 #Note : 
 #	Make sure before you run "make" command be super user using "sudo -i".
 #	param_set_int(val, kp); // Use helper for write variable
@@ -291,6 +358,22 @@ Important stuff :
 #	ioctl is used when we want to implement specific functionality in driver for device, otherwise just for read and write operation copy_to_user and copy_from_user is already there.
 
 IMPORTANT TOPIC :
+What is jiffies?
+ANS :
+
+	Jiffies is a global variable declared in <linux/jiffies.h>  : Did not find any.	
+	as: extern unsigned long volatile jiffies; 
+	
+	Its only usage is to store the number of ticks occurred since system start-up. 
+	On kernel boot-up, jiffies is initialized to a special initial value, and it is incremented by one for each timer interrupt.
+	there are HZ ticks occurred in one second, and thus there are HZ jiffies in a second.
+	Jiffies and HZ can be used for time conversion. From previous discussion, we know that HZ is defined as number of ticks in one second:
+
+	HZ = no. ticks/sec
+
+	and jiffies is number of ticks occurred:
+
+	jiffies = no. of ticks
 
 When one should use spinlock instead of mutex ?
 ANS :

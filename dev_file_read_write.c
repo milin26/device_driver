@@ -107,6 +107,10 @@ void rw_func(char *file_name)
 				read(fd, read_buf, 1024);
 				printf("Done!\n\n");
 				printf("Data = %s\n\n", read_buf);
+				//uncomment while giving demo to show process context in bottom half
+				//close(fd);
+				//fd = 0;
+				//fd = open(file_name, O_RDWR);
 				break;
 			case '3':
 				close(fd);
