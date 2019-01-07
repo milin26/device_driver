@@ -239,6 +239,42 @@ proc entry and related function
 
 cdev has member called struct kobject which can be use for creating sysfs in driver.
 ------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------
+#Interrupt programming
+
+API's :
+#	1)request_irq(unsigned int irq,irq_handler_t handler,unsigned long flags,const char *name,void *dev_id) :
+#	Return:
+#		 returns zero on success and nonzero value indicates an error.
+
+#	2)free_irq(unsigned int irq, void *dev_id):
+#	Release an IRQ registered by request_irq() with the following parameters: 
+#	irq: IRQ number. 
+#	dev_id: is the last parameter of request_irq.
+#	If the specified interrupt line is not shared, this function removes the handler and disables the line.
+#	If the interrupt line is shared, the handler identified via dev_id is removed, but the interrupt line is disabled only when the last handler is removed.
+#	With shared interrupt lines, a unique cookie is required to differentiate between the multiple handlers that can exist on a single line and enable free_irq() to remove only the correct handler.
+#	In either case (shared or unshared), if dev_id is non-NULL, it must match the desired handler. A call to free_irq() must be made from process context.
+
+#	3)enable_irq(unsigned int irq) :Re-enable interrupt disabled by disable_irq or disable_irq_nosync.
+
+#	4)disable_irq(unsigned int irq) : Disable an IRQ from issuing an interrupt.
+
+#	5)disable_irq_nosync(unsigned int irq) : Disable an IRQ from issuing an interrupt, but wait until there is an interrupt handler being executed.
+
+#	6)in_irq() : returns true when in interrupt handler
+
+#	7)in_interrupt() : returns true when in interrupt handler or bottom half
+
+Important stuff : 
+#			The IRQ0 is mapped to vector using the macro,
+#			define IRQ0_VECTOR (FIRST_EXTERNAL_VECTOR + 0x10)
+#			where, FIRST_EXTERNAL_VECTOR = 0x20
+#			So if we want to raise an interrupt IRQ11, programmatically we have to add 11 to vector of IRQ0.
+#			0x20 + 0x10 + 11 = 0x3B (59 in Decimal).
+#			Hence executing “asm("int $0x3B")” will raise interrupt IRQ 11.
+#			asm("int $0x3B");  // Corresponding to irq 11
+------------------------------------------------------------------------------------------------------------------------------------------
 #Note : 
 #	Make sure before you run "make" command be super user using "sudo -i".
 #	param_set_int(val, kp); // Use helper for write variable
