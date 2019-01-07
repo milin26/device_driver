@@ -24,13 +24,15 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 #include <linux/proc_fs.h>	//include to resolve the error for proc_create()
 #include <linux/kobject.h>
 #include <linux/sysfs.h>
+#include <linux/interrupt.h>
+#include <asm/io.h>
 /*******************************************************************************
   LOCAL MACROS		
  *******************************************************************************/
 
 #define U_MODULE_LICENSE	"GPL"
 #define U_MODULE_AUTHOR		"MILIN@SPANIDEA"
-#define U_MODULE_DESCRIPTION	"IOCTL"
+#define U_MODULE_DESCRIPTION	"INTERRUPT"
 #define U_MODULE_VERSION	"0:1.5"
 
 //#define MAJOR_MINOR_STATIC
@@ -43,7 +45,17 @@ License  : SpanIdea Systems Pvt. Ltd. All rights reserved.
 #define LKM_WR_VALUE		_IOW('.', '.', int32_t*)
 #define LKM_RD_VALUE		_IOR('.', '@', int32_t*)
 
+#define IRQ_NO		11
+
 /*---------------static/dynamic major minor number allocation-----------------*/
+
+
+static irqreturn_t irq_handler(int irq, void *dev_id)
+{
+	printk(KERN_INFO "SHARED IRQ : Interrupt occured on IRQ %d...\n",irq);
+	return IRQ_HANDLED;
+}
+
 #ifdef MAJOR_MINOR_DYNAMIC
 dev_t dev = 0;
 #endif
@@ -98,12 +110,12 @@ module_param_cb(cb_valueETX, &my_param_ops, &cb_valueETX,S_IWUSR |S_IRUSR);//4
 /*----------------------------------------------------------------------------*/
 
 
-static int     sample_module_init(void);
-static void    sample_module_exit(void);
-static int     sample_module_open(struct inode *inode, struct file *filep);
-static int     sample_module_release(struct inode *inode, struct file *filep);
-static ssize_t sample_module_read(struct file *filep, char __user *buff, size_t len, loff_t *off);
-static ssize_t sample_module_write(struct file *filep, const char __user *buff, size_t len, loff_t *off);
+static int __init  sample_module_init(void);
+static void __exit sample_module_exit(void);
+static int         sample_module_open(struct inode *inode, struct file *filep);
+static int         sample_module_release(struct inode *inode, struct file *filep);
+static ssize_t     sample_module_read(struct file *filep, char __user *buff, size_t len, loff_t *off);
+static ssize_t     sample_module_write(struct file *filep, const char __user *buff, size_t len, loff_t *off);
 
 static long    sample_module_ioctl(struct file *filep, unsigned int command_name, unsigned long arg);
 
@@ -114,6 +126,9 @@ static ssize_t sample_proc_module_write(struct file *filep, const char *buff, si
 
 static ssize_t sysfs_read(struct kobject *object, struct kobj_attribute *attr, char *buff);
 static ssize_t sysfs_write(struct kobject *object, struct kobj_attribute *attr, const char *buf, size_t count);
+
+static void __init dummy_irq_init(void);
+static void __exit dummy_irq_exit(void);
 
 static struct file_operations my_ops = {
 	.owner   	= THIS_MODULE,
@@ -139,6 +154,26 @@ This function is passed as an argument to module_init.
 input param      : void
 return param     : signed integer
  **********************************************************************************************/
+
+static void __init dummy_irq_init(void)
+{
+
+	if(request_irq(IRQ_NO, irq_handler, IRQF_SHARED, DEVICE_FILE_NAME, (void *)irq_handler))
+	{
+		printk(KERN_INFO "my_device: can't register IRQ\n");
+		dummy_irq_exit();
+	}
+	else
+	{	
+		printk(KERN_INFO "my_device: register IRQ success..enabled...\n");
+	}
+}
+
+static void __exit dummy_irq_exit(void)
+{
+	printk(KERN_INFO "dummy-irq unloaded...\n");
+	free_irq(IRQ_NO, (void *)irq_handler);
+}
 
 static int sample_module_open(struct inode *inode, struct file *filep)
 {
@@ -174,6 +209,7 @@ static ssize_t sample_module_read(struct file *filep, char __user *buff, size_t 
 		printk(KERN_INFO "data read done!\n");
 	}
 	printk(KERN_INFO "%s has been called...\n", __func__);
+	asm("int $0x3B");
 	return len;
 }
 
@@ -328,6 +364,7 @@ static int __init sample_module_init(void)
 	proc_create(PROC_ENTRY, 0666, NULL, &proc_fops);
 
 	/*Creating kobject and sysfs file*/
+	//kobject is overwritten here...
 	kobject = kobject_create_and_add("stone_sysfs", kernel_kobj);
 	if(sysfs_create_file(kobject, &stone_attr.attr))
 	{
@@ -338,6 +375,8 @@ static int __init sample_module_init(void)
 	else
 		printk(KERN_INFO "sysfs file created...\n");
 
+	dummy_irq_init();
+	enable_irq(IRQ_NO);
 	printk(KERN_INFO "ValueETX = %d  \n", valueETX);
 	printk(KERN_INFO "cb_valueETX = %d  \n", cb_valueETX);
 	printk(KERN_INFO "NameETX = %s \n", nameETX);
@@ -359,6 +398,7 @@ return param     : void
 
 static void __exit sample_module_exit(void)
 {
+	dummy_irq_exit();
 	sysfs_remove_file(kobject, &stone_attr.attr);
 	kobject_put(kobject);
 	remove_proc_entry(PROC_ENTRY,NULL);
