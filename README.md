@@ -211,6 +211,7 @@ proc entry and related function
 #11. split : spit the vim editor screen 1 opt 
 #12. tail -f -n 5 /var/log/syslog : can see the live log under syslog file, -n 5 will give last five lines
 #13. echo "computation_expression" | bc : Command line calculator
+#14. shrtcut to switch between split screen in vim editor : ctrl+w then arrow key to nevigate 
 ------------------------------------------------------------------------------------------------------------------------------------------
 #Header file being used till now:
 #1. linux/module.h - For all previous module only this header is enough.
